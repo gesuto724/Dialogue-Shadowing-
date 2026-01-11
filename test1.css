@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<link rel="stylesheet" href="./test1.css">
+<meta charset="utf-8">
+<title>Dialogue Shadowing</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+  --bg:#f4f6fb;
+  --card:#ffffff;
+  --line:#e3e6ef;
+  --accent:#4f6bed;
+  --accent-soft:#e8ecff;
+  --text:#222;
+  --sub:#666;
+}
+
+*{box-sizing:border-box}
+
+body{
+  font-family: system-ui, -apple-system, "Noto Sans JP", sans-serif;
+  background:linear-gradient(180deg,#eef1fb,#f9faff);
+  margin:16px;
+  color:var(--text);
+}
+
+.wrap{max-width:900px;margin:auto;}
+
+h2{
+  margin-bottom:12px;
+  font-weight:700;
+  letter-spacing:.03em;
+}
+
+/* ===== input area ===== */
+textarea{
+  width:100%;
+  height:160px;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:#fafbff;
+  font-size:14px;
+  resize:vertical;
+}
+
+.card{
+  background:var(--card);
+  border-radius:18px;
+  border:1px solid var(--line);
+  padding:14px;
+  margin-bottom:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,.04);
+}
+
+button,select{
+  padding:8px 12px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:white;
+  cursor:pointer;
+  transition:.15s;
+}
+
+button:hover,select:hover{
+  background:var(--accent-soft);
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:10px;
+  align-items:center;
+}
+
+/* ===== dialogue ===== */
+.dialogue{
+  margin-top:18px;
+  padding-bottom:220px;
+}
+
+.turn{
+  display:flex;
+  margin:12px 0;
+}
+
+.left{justify-content:flex-start;}
+.right{justify-content:flex-end;}
+
+.bubble{
+  max-width:75%;
+  padding:12px 14px;
+  border-radius:18px;
+  border:1px solid var(--line);
+  background:white;
+  box-shadow:0 4px 12px rgba(0,0,0,.04);
+  transition:.2s;
+}
+
+.meta{
+  font-size:12px;
+  color:var(--sub);
+  margin-bottom:6px;
+}
+
+.en{
+  font-size:16px;
+  line-height:1.5;
+}
+
+.ja{
+  font-size:14px;
+  color:#333;
+  margin-top:6px;
+  line-height:1.5;
+}
+
+.focus{
+  outline:3px solid var(--accent);
+  outline-offset:2px;
+  box-shadow:0 0 0 6px rgba(79,107,237,.15);
+}
+
+.noteTa{
+  margin-top:8px;
+  height:60px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  padding:6px;
+  font-size:13px;
+}
+
+/* ===== floating panel ===== */
+.floatNav{
+  position:fixed;
+  left:16px;
+  bottom:16px;
+  z-index:9999;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:12px;
+  background:rgba(255,255,255,0.95);
+  border-radius:18px;
+  border:1px solid var(--line);
+  box-shadow:0 10px 28px rgba(0,0,0,.18);
+  width:min(320px, calc(100vw - 32px));
+  backdrop-filter: blur(8px);
+}
+
+.floatRow{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.floatRow button{
+  flex:1;
+  font-weight:600;
+  background:var(--accent);
+  color:white;
+  border:none;
+}
+
+.floatRow button:hover{
+  background:#3e5be0;
+}
+
+.floatLabel{
+  font-size:12px;
+  color:var(--sub);
+  min-width:22px;
+  text-align:center;
+}
+
+.floatNav select{
+  flex:1;
+  text-align:center;
+}
+
+.small{font-size:12px;color:var(--sub)}
+
+/* 折りたたみ */
+.floatNav.collapsed{
+  width: 84px;
+  padding: 10px;
+}
+.floatNav.collapsed .floatRow:not(:first-child){
+  display: none;
+}
+#toggleFloat{
+  flex: 0 0 auto;
+  width: 52px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: white;
+  font-weight: 800;
+}
+.floatNav.collapsed #toggleFloat{
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+<h2>Dialogue Shadowing</h2>
+
+<div class="card">
+<label>台本（TSV形式 speaker[TAB]英[TAB]日）</label>
+<textarea id="input">A	Hey, are you free this weekend?	今週末空いてる？
+B	Yeah, what’s up?	うん、どうしたの？
+A	I’m thinking of going hiking.	ハイキングに行こうと思ってて。
+B	Sounds good. Where to?	いいね。どこに行く？</textarea>
+
+<div class="row">
+<button id="renderBtn">表示</button>
+<button id="clearBtn">クリア</button>
+</div>
+</div>
+
+<div class="card">
+<div class="row">
+<select id="myRole"></select>
+<label><input type="checkbox" id="hideMyLines"> 自分のセリフを隠す</label>
+<label><input type="checkbox" id="showNotes" checked> メモ表示</label>
+
+<select id="modeA">
+<option value="both">A: 英日</option>
+<option value="en">A: 英</option>
+<option value="ja">A: 日</option>
+<option value="hide">A: 非</option>
+</select>
+
+<select id="modeB">
+<option value="both">B: 英日</option>
+<option value="en">B: 英</option>
+<option value="ja">B: 日</option>
+<option value="hide">B: 非</option>
+</select>
+</div>
+
+<div class="small">右下（左下）パネルでも操作できます。</div>
+</div>
+
+<div id="dialogue" class="dialogue"></div>
+
+</div>
+
+<!-- floating panel -->
+<div class="floatNav">
+  <div class="floatRow">
+    <button id="floatPrev">← 前</button>
+    <button id="floatNext">次 →</button>
+  </div>
+  <div class="floatRow">
+    <span class="floatLabel">A</span>
+    <select id="floatModeA">
+      <option value="both">英日</option>
+      <option value="en">英</option>
+      <option value="ja">日</option>
+      <option value="hide">非</option>
+    </select>
+    <span class="floatLabel">B</span>
+    <select id="floatModeB">
+      <option value="both">英日</option>
+      <option value="en">英</option>
+      <option value="ja">日</option>
+      <option value="hide">非</option>
+    </select>
+  </div>
+</div>
+
+<script>
+const inputEl = input;
+const renderBtn = renderBtnEl = document.getElementById("renderBtn");
+const clearBtn = document.getElementById("clearBtn");
+const dialogueEl = document.getElementById("dialogue");
+
+const myRoleEl = document.getElementById("myRole");
+const hideMyLinesEl = document.getElementById("hideMyLines");
+const showNotesEl = document.getElementById("showNotes");
+const modeAEl = document.getElementById("modeA");
+const modeBEl = document.getElementById("modeB");
+
+const floatPrev = document.getElementById("floatPrev");
+const floatNext = document.getElementById("floatNext");
+const floatModeAEl = document.getElementById("floatModeA");
+const floatModeBEl = document.getElementById("floatModeB");
+
+let turns=[],focusIndex=0,notes=new Map();
+
+function parseTSV(t){
+ return t.split(/\r?\n/).filter(l=>l.trim()).map(l=>{
+  const c=l.split("\t");
+  return {speaker:c[0]?.trim(),en:c[1]?.trim(),ja:c[2]?.trim()};
+ }).filter(x=>x.speaker);
+}
+
+function syncTopToFloat(){
+ floatModeAEl.value=modeAEl.value;
+ floatModeBEl.value=modeBEl.value;
+}
+function syncFloatToTop(){
+ modeAEl.value=floatModeAEl.value;
+ modeBEl.value=floatModeBEl.value;
+}
+
+function render(){
+ dialogueEl.innerHTML="";
+ turns.forEach((t,i)=>{
+  const div=document.createElement("div");
+  div.className="turn "+(t.speaker==="B"?"right":"left");
+  div.dataset.index=i;
+
+  const b=document.createElement("div");
+  b.className="bubble";
+
+  b.innerHTML=`<div class="meta">${t.speaker} / ${i+1}</div>`;
+
+  const mode=t.speaker==="B"?modeBEl.value:modeAEl.value;
+
+  if(mode!=="hide"){
+    if(!(hideMyLinesEl.checked && t.speaker===myRoleEl.value)){
+      if(mode==="en"||mode==="both") b.innerHTML+=`<div class="en">${t.en||""}</div>`;
+      if(mode==="ja"||mode==="both") b.innerHTML+=`<div class="ja">${t.ja||""}</div>`;
+    }else{
+      b.innerHTML+=`<div class="en">（ここで自分が言う）</div>`;
+    }
+  }
+
+  if(showNotesEl.checked){
+    const ta=document.createElement("textarea");
+    ta.className="noteTa";
+    ta.value=notes.get(i)||"";
+    ta.placeholder="気づきメモ";
+    ta.oninput=()=>notes.set(i,ta.value);
+    b.appendChild(ta);
+  }
+
+  div.appendChild(b);
+  dialogueEl.appendChild(div);
+ });
+ applyFocus();
+}
+
+function applyFocus(){
+ document.querySelectorAll(".bubble").forEach(b=>b.classList.remove("focus"));
+ const t=document.querySelector(`.turn[data-index="${focusIndex}"] .bubble`);
+ if(t){
+  t.classList.add("focus");
+  t.scrollIntoView({behavior:"smooth",block:"nearest"});
+ }
+}
+
+function rebuildRoles(){
+ const set=[...new Set(turns.map(t=>t.speaker))];
+ myRoleEl.innerHTML="";
+ set.forEach(s=>{
+  const o=document.createElement("option");
+  o.value=s;o.textContent=s;
+  myRoleEl.appendChild(o);
+ });
+ if(set.includes("A")) myRoleEl.value="A";
+}
+
+function goPrev(){focusIndex=Math.max(0,focusIndex-1);applyFocus();}
+function goNext(){focusIndex=Math.min(turns.length-1,focusIndex+1);applyFocus();}
+
+renderBtn.onclick=()=>{
+ turns=parseTSV(inputEl.value);
+ focusIndex=0;notes=new Map();
+ rebuildRoles();syncTopToFloat();render();
+};
+
+clearBtn.onclick=()=>{
+ turns=[];focusIndex=0;notes=new Map();
+ dialogueEl.innerHTML="";myRoleEl.innerHTML="";
+};
+
+[myRoleEl,hideMyLinesEl,showNotesEl].forEach(e=>e.onchange=render);
+[modeAEl,modeBEl].forEach(e=>e.onchange=()=>{syncTopToFloat();render();});
+[floatModeAEl,floatModeBEl].forEach(e=>e.onchange=()=>{syncFloatToTop();render();});
+
+floatPrev.onclick=goPrev;
+floatNext.onclick=goNext;
+
+// init
+turns=parseTSV(inputEl.value);
+rebuildRoles();syncTopToFloat();render();
+</script>
+
+</body>
+
+</html>
